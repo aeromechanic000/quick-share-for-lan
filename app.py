@@ -263,7 +263,7 @@ class ScreenStreamer:
         import mss
         from PIL import Image
 
-        with mss.mss() as sct:
+        with mss.MSS() as sct:
             monitor = sct.monitors[1] if len(sct.monitors) > 1 else sct.monitors[0]
             while not self._stop_event.is_set():
                 screenshot = sct.grab(monitor)
