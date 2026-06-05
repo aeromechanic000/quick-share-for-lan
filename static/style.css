@@ -70,9 +70,32 @@ a:active {
 /* Tab Bar */
 .tab-bar {
     display: flex;
+    align-items: flex-end;
     gap: 0.25rem;
     padding: 0.75rem 1.5rem 0;
     flex-shrink: 0;
+}
+
+.nickname-input {
+    margin-left: auto;
+    align-self: center;
+    padding: 0.45rem 0.75rem;
+    background: var(--surface-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    width: 140px;
+    outline: none;
+    transition: var(--transition);
+}
+
+.nickname-input::placeholder {
+    color: var(--text-muted);
+}
+
+.nickname-input:focus {
+    border-color: var(--primary-accent);
 }
 
 .tab-btn {

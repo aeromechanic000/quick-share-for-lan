@@ -233,6 +233,7 @@ const App = () => {
     const [uploadStatus, setUploadStatus] = useState('');
     const [isDragging, setIsDragging] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [nickname, setNickname] = useState(() => localStorage.getItem('nickname') || '');
 
     // Voting state
     const [voteTopics, setVoteTopics] = useState([]);
@@ -404,6 +405,8 @@ const App = () => {
     const handleFileUpload = async (file) => {
         const formData = new FormData();
         formData.append('file', file);
+        const trimmed = nickname.trim();
+        if (trimmed) formData.append('nickname', trimmed);
 
         try {
             setUploadStatus('Uploading...');
@@ -466,6 +469,16 @@ const App = () => {
                         <span>{tab.label}</span>
                     </button>
                 ))}
+                <input
+                    type="text"
+                    className="nickname-input"
+                    placeholder="Nickname"
+                    value={nickname}
+                    onChange={(e) => {
+                        setNickname(e.target.value);
+                        localStorage.setItem('nickname', e.target.value);
+                    }}
+                />
             </div>
 
             {/* Tab Content */}

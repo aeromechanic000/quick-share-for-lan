@@ -89,7 +89,12 @@ def upload_file():
 
     if file:
         filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{get_random_file_prefix()}-{filename}")
+        nickname = request.form.get('nickname', '').strip()
+        name_parts = [get_random_file_prefix()]
+        if nickname:
+            name_parts.append(secure_filename(nickname))
+        name_parts.append(filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], '-'.join(name_parts))
         file.save(file_path)
         return jsonify({'message': f'File {filename} uploaded successfully'})
 
@@ -245,27 +250,60 @@ def get_vote_status():
         return jsonify({'votes': {}, 'error': str(e)})
 
 # Screen sharing
-def generate_screen_frames():
-    import mss
-    from PIL import Image
+class ScreenStreamer:
+    def __init__(self):
+        self._frame = None
+        self._lock = threading.Lock()
+        self._viewers = []
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._capture_loop, daemon=True)
+        self._thread.start()
 
-    with mss.mss() as sct:
-        monitor = sct.monitors[1] if len(sct.monitors) > 1 else sct.monitors[0]
-        while True:
-            screenshot = sct.grab(monitor)
-            img = Image.frombytes('RGB', screenshot.size, screenshot.bgra, 'raw', 'BGRX')
-            buf = io.BytesIO()
-            img.save(buf, format='JPEG', quality=75)
-            frame = buf.getvalue()
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-            time.sleep(0.1)  # ~10 FPS
+    def _capture_loop(self):
+        import mss
+        from PIL import Image
+
+        with mss.mss() as sct:
+            monitor = sct.monitors[1] if len(sct.monitors) > 1 else sct.monitors[0]
+            while not self._stop_event.is_set():
+                screenshot = sct.grab(monitor)
+                img = Image.frombytes('RGB', screenshot.size, screenshot.bgra, 'raw', 'BGRX')
+                buf = io.BytesIO()
+                img.save(buf, format='JPEG', quality=75)
+                with self._lock:
+                    self._frame = buf.getvalue()
+                    for evt in self._viewers:
+                        evt.set()
+                self._stop_event.wait(0.1)
+
+    def stop(self):
+        self._stop_event.set()
+        self._thread.join()
+
+    def frames(self):
+        evt = threading.Event()
+        with self._lock:
+            self._viewers.append(evt)
+        try:
+            while not self._stop_event.is_set():
+                evt.wait(timeout=5.0)
+                evt.clear()
+                with self._lock:
+                    frame = self._frame
+                if frame:
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+        finally:
+            with self._lock:
+                self._viewers.remove(evt)
+
+screen_streamer = None
 
 @app.route('/api/screen-stream')
 def screen_stream():
-    if not screen_enabled:
+    if not screen_streamer:
         return jsonify({'error': 'Screen sharing not enabled'}), 403
-    return Response(generate_screen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(screen_streamer.frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/api/screen-enabled')
 def check_screen_enabled():
@@ -280,6 +318,7 @@ if __name__ == '__main__':
     screen_enabled = args.screen
 
     if screen_enabled:
+        screen_streamer = ScreenStreamer()
         print("Screen sharing: ENABLED")
 
     app.run(debug=True, host="0.0.0.0", port=args.port)
