@@ -469,6 +469,7 @@ const App = () => {
                         <span>{tab.label}</span>
                     </button>
                 ))}
+                <span className="nickname-label">Nickname</span>
                 <input
                     type="text"
                     className="nickname-input"
