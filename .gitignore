@@ -1,3 +1,12 @@
+# Dotfiles
+.*
+!.gitignore
+!.git/
+
+# Uploads/downloads in static
+static/uploads/
+static/downloads/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
